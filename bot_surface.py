@@ -2,7 +2,7 @@ import os
 import requests
 from bs4 import BeautifulSoup
 
-# LINK OTTIMIZZATO: Versione che forza il layout di ricerca classico compatibile con BeautifulSoup
+# LINK OTTIMIZZATO: Categoria Tablet, max 1500€, ordinato per i più recenti
 URL_RICERCA = "https://ebay.it"
 
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
@@ -35,7 +35,7 @@ def controlla_offerte():
             
         soup = BeautifulSoup(risposta.text, 'html.parser')
         
-        # Cerchiamo in modo esteso tutti i contenitori di annunci possibili su eBay usando selettori alternativi
+        # Estrazione di tutti i blocchi contenitori di annunci
         annunci = soup.find_all('div', class_='s-item__info') or soup.select('.s-item__info') or soup.select('.s-item')
         print(f"Numero di blocchi grezzi individuati sulla pagina: {len(annunci)}")
         
@@ -53,22 +53,25 @@ def controlla_offerte():
             prezzo = prezzo_elem.text.strip()
             link = link_elem['href']
             
+            # Rimuove l'etichetta "Nuova inserzione" che eBay inserisce nel testo del titolo
+            if titolo.lower().startswith("nuova inserzione"):
+                titolo = titolo[16:].strip()
+                
             titolo_low = titolo.lower()
             
-            # Filtri di esclusione
-            if "shop on ebay" in titolo_low or "immagine" in titolo_low or titolo == "":
+            # Filtri base di esclusione per evitare elementi vuoti o pubblicità generiche
+            if "shop on ebay" in titolo_low or titolo == "" or "immagine" in titolo_low:
                 continue
             if "solo tastiera" in titolo_low or "pellicola" in titolo_low or "caricabatterie" in titolo_low:
                 continue
-            if "tastiera" in titolo_low and "surface pro" not in titolo_low:
-                continue
                 
+            # Invio della notifica per ogni computer reale trovato
             msg = f"💻 *SURFACE TROVATO* 💻\n\n*Modello:* {titolo}\n*Prezzo:* {prezzo}\n[Vedi Annuncio]({link})"
             invia_notifica(msg)
             print(f"[{contatore_invii + 1}] Inviato con successo: {titolo} a {prezzo}")
             
             contatore_invii += 1
-            if contatore_invii >= 3:
+            if contatore_invii >= 3: # Invia i primi 3 risultati validi trovati per il test
                 break
                 
         if contatore_invii == 0:
