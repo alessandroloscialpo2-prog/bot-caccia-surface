@@ -10,14 +10,14 @@ TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
 
 def invia_notifica(messaggio):
     url = f"https://telegram.org{TELEGRAM_TOKEN}/sendMessage"
-    payload = {"chat_id": TELEGRAM_CHAT_ID, "text": messaggio, "parse_mode": "Markdown"}
+    payload = {"chat_id": TELEGRAM_CHAT_ID, "text": mensaje, "parse_mode": "Markdown"}
     try:
         requests.post(url, json=payload, timeout=10)
     except Exception as e:
-        print(f"Errore invio: {e}")
+        print(f"Errore invio Telegram: {e}")
 
 def controlla_offerte():
-    print("Controllo offerte Surface in corso...")
+    print("Avvio scansione approfondita delle offerte...")
     
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
@@ -29,45 +29,55 @@ def controlla_offerte():
     
     try:
         risposta = requests.get(URL_RICERCA, headers=headers, timeout=15)
-        if risposta.status_code == 200:
-            soup = BeautifulSoup(risposta.text, 'html.parser')
-            
-            # Cerchiamo tutti i possibili contenitori di annunci di eBay
-            annunci = soup.find_all('div', class_='s-item__info') or soup.find_all('li', class_='s-item')
-            
-            trovato = False
-            for annuncio in annunci:
-                # Sistema di estrazione flessibile per i titoli
-                titolo_elem = annuncio.find('span', role='heading') or annuncio.find('div', class_='s-item__title')
-                prezzo_elem = annuncio.find('span', class_='s-item__price')
-                link_elem = annuncio.find('a', class_='s-item__link')
-                
-                if titolo_elem and prezzo_elem and link_elem:
-                    titolo = titolo_elem.text
-                    prezzo = prezzo_elem.text
-                    link = link_elem['href']
-                    
-                    # Filtri di pulizia avanzati per saltare gli accessori
-                    titolo_low = titolo.lower()
-                    if "shop on ebay" in titolo_low or "immagine" in titolo_low:
-                        continue
-                    if "solo tastiera" in titolo_low or "pellicola" in titolo_low or "caricabatterie" in titolo_low:
-                        continue
-                    if "tastiera" in titolo_low and "surface pro" not in titolo_low:
-                        continue
-                        
-                    msg = f"💻 *SURFACE TROVATO (Filtro Attivo)* 💻\n\n*Modello:* {titolo}\n*Prezzo:* {prezzo}\n[Vedi Annuncio]({link})"
-                    invia_notifica(msg)
-                    print(f"Inviato con successo: {titolo} a {prezzo}")
-                    trovato = True
-                    break  # Ci fermiamo al primo annuncio valido trovato nella lista
-            
-            if not trovato:
-                print("Nessun annuncio valido filtrato nei risultati analizzati.")
-        else:
+        if risposta.status_code != 200:
             print(f"Errore connessione: {risposta.status_code}")
+            return
+            
+        soup = BeautifulSoup(risposta.text, 'html.parser')
+        
+        # Cerchiamo in modo esteso tutti i contenitori di annunci possibili su eBay
+        annunci = soup.select('.s-item') or soup.find_all('div', class_='s-item__info')
+        print(f"Numero di blocchi grezzi individuati sulla pagina: {len(annunci)}")
+        
+        contatore_invii = 0
+        
+        for i, annuncio in enumerate(annunci):
+            # Estrazione flessibile del titolo
+            titolo_elem = annuncio.select_one('.s-item__title') or annuncio.find('span', role='heading')
+            prezzo_elem = annuncio.select_one('.s-item__price')
+            link_elem = annuncio.select_one('.s-item__link')
+            
+            if not (titolo_elem and prezzo_elem and link_elem):
+                continue
+                
+            titolo = titolo_elem.text.strip()
+            prezzo = prezzo_elem.text.strip()
+            link = link_elem['href']
+            
+            titolo_low = titolo.lower()
+            
+            # Filtri di esclusione per gli annunci spazzatura
+            if "shop on ebay" in titolo_low or "immagine" in titolo_low or titolo == "":
+                continue
+            if "solo tastiera" in titolo_low or "pellicola" in titolo_low or "caricabatterie" in titolo_low:
+                continue
+            if "tastiera" in titolo_low and "surface pro" not in titolo_low:
+                continue
+                
+            # Se l'annuncio supera i filtri, lo inviamo
+            msg = f"💻 *SURFACE TROVATO* 💻\n\n*Modello:* {titolo}\n*Prezzo:* {prezzo}\n[Vedi Annuncio]({link})"
+            invia_notifica(msg)
+            print(f"[{contatore_invii + 1}] Inviato con successo: {titolo} a {prezzo}")
+            
+            contatore_invii += 1
+            if contatore_invii >= 3:  # Ci fermiamo dopo aver inviato i primi 3 veri computer
+                break
+                
+        if contatore_invii == 0:
+            print("La pagina conteneva blocchi HTML, ma nessuno ha superato i filtri sul testo.")
+            
     except Exception as e:
-        print(f"Errore generale: {e}")
+        print(f"Errore generale nel ciclo: {e}")
 
 if __name__ == "__main__":
     controlla_offerte()
