@@ -2,7 +2,7 @@ import os
 import requests
 from bs4 import BeautifulSoup
 
-# LINK DI TEST (Budget alzato a 1000€ per forzare l'invio del messaggio)
+# LINK DI TEST (Budget a 1000€ per la prova)
 URL_RICERCA = "https://ebay.it"
 
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
@@ -18,7 +18,15 @@ def invia_notifica(messaggio):
 
 def controlla_offerte():
     print("Controllo offerte Surface in corso...")
-    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
+    
+    # Intestazioni potenziate per camuffare il bot da browser umano ed evitare l'errore 418
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'it-IT,it;q=0.8,en-US;q=0.5,en;q=0.3',
+        'Cache-Control': 'max-age=0',
+        'Upgrade-Insecure-Requests': '1'
+    }
     
     try:
         risposta = requests.get(URL_RICERCA, headers=headers, timeout=15)
@@ -44,16 +52,16 @@ def controlla_offerte():
                         
                     msg = f"💻 *NUOVO SURFACE TROVATO!* 💻\n\n*Modello:* {titolo}\n*Prezzo:* {prezzo}\n[Vedi Annuncio]({link})"
                     invia_notifica(msg)
-                    print(f"Inviato: {titolo} a {prezzo}")
+                    print(f"Inviato con successo: {titolo} a {prezzo}")
                     trovato = True
                     break
             
             if not trovato:
-                print("Nessun annuncio valido trovato nei primi risultati.")
+                print("Nessun annuncio valido filtrato nei primi risultati.")
         else:
             print(f"Errore connessione: {risposta.status_code}")
     except Exception as e:
-        print(f"Errore: {e}")
+        print(f"Errore generale: {e}")
 
 if __name__ == "__main__":
     controlla_offerte()
