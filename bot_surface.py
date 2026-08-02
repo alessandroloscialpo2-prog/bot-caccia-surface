@@ -2,7 +2,7 @@ import os
 import requests
 from bs4 import BeautifulSoup
 
-# LINK OTTIMIZZATO: Categoria Tablet, max 1500€, ordinato per i più recenti
+# LINK OTTIMIZZATO: Versione che forza il layout di ricerca classico compatibile con BeautifulSoup
 URL_RICERCA = "https://ebay.it"
 
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
@@ -10,7 +10,7 @@ TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
 
 def invia_notifica(messaggio):
     url = f"https://telegram.org{TELEGRAM_TOKEN}/sendMessage"
-    payload = {"chat_id": TELEGRAM_CHAT_ID, "text": mensaje, "parse_mode": "Markdown"}
+    payload = {"chat_id": TELEGRAM_CHAT_ID, "text": messaggio, "parse_mode": "Markdown"}
     try:
         requests.post(url, json=payload, timeout=10)
     except Exception as e:
@@ -35,17 +35,16 @@ def controlla_offerte():
             
         soup = BeautifulSoup(risposta.text, 'html.parser')
         
-        # Cerchiamo in modo esteso tutti i contenitori di annunci possibili su eBay
-        annunci = soup.select('.s-item') or soup.find_all('div', class_='s-item__info')
+        # Cerchiamo in modo esteso tutti i contenitori di annunci possibili su eBay usando selettori alternativi
+        annunci = soup.find_all('div', class_='s-item__info') or soup.select('.s-item__info') or soup.select('.s-item')
         print(f"Numero di blocchi grezzi individuati sulla pagina: {len(annunci)}")
         
         contatore_invii = 0
         
-        for i, annuncio in enumerate(annunci):
-            # Estrazione flessibile del titolo
-            titolo_elem = annuncio.select_one('.s-item__title') or annuncio.find('span', role='heading')
-            prezzo_elem = annuncio.select_one('.s-item__price')
-            link_elem = annuncio.select_one('.s-item__link')
+        for annuncio in annunci:
+            titolo_elem = annuncio.find('span', role='heading') or annuncio.select_one('.s-item__title')
+            prezzo_elem = annuncio.find('span', class_='s-item__price') or annuncio.select_one('.s-item__price')
+            link_elem = annuncio.find('a', class_='s-item__link') or annuncio.select_one('.s-item__link')
             
             if not (titolo_elem and prezzo_elem and link_elem):
                 continue
@@ -56,7 +55,7 @@ def controlla_offerte():
             
             titolo_low = titolo.lower()
             
-            # Filtri di esclusione per gli annunci spazzatura
+            # Filtri di esclusione
             if "shop on ebay" in titolo_low or "immagine" in titolo_low or titolo == "":
                 continue
             if "solo tastiera" in titolo_low or "pellicola" in titolo_low or "caricabatterie" in titolo_low:
@@ -64,13 +63,12 @@ def controlla_offerte():
             if "tastiera" in titolo_low and "surface pro" not in titolo_low:
                 continue
                 
-            # Se l'annuncio supera i filtri, lo inviamo
             msg = f"💻 *SURFACE TROVATO* 💻\n\n*Modello:* {titolo}\n*Prezzo:* {prezzo}\n[Vedi Annuncio]({link})"
             invia_notifica(msg)
             print(f"[{contatore_invii + 1}] Inviato con successo: {titolo} a {prezzo}")
             
             contatore_invii += 1
-            if contatore_invii >= 3:  # Ci fermiamo dopo aver inviato i primi 3 veri computer
+            if contatore_invii >= 3:
                 break
                 
         if contatore_invii == 0:
