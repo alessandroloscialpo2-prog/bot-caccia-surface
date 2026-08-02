@@ -2,7 +2,7 @@ import os
 import requests
 from bs4 import BeautifulSoup
 
-# Link di ricerca specifico (Surface Pro 7 o successivi, max 250€)
+# LINK DI TEST (Budget alzato a 1000€ per forzare l'invio del messaggio)
 URL_RICERCA = "https://ebay.it"
 
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
@@ -11,7 +11,10 @@ TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
 def invia_notifica(messaggio):
     url = f"https://telegram.org{TELEGRAM_TOKEN}/sendMessage"
     payload = {"chat_id": TELEGRAM_CHAT_ID, "text": messaggio, "parse_mode": "Markdown"}
-    requests.post(url, json=payload, timeout=10)
+    try:
+        requests.post(url, json=payload, timeout=10)
+    except Exception as e:
+        print(f"Errore invio: {e}")
 
 def controlla_offerte():
     print("Controllo offerte Surface in corso...")
@@ -23,7 +26,8 @@ def controlla_offerte():
             soup = BeautifulSoup(risposta.text, 'html.parser')
             annunci = soup.find_all('div', class_='s-item__info')
             
-            for annuncio in annunci[:5]:
+            trovato = False
+            for annuncio in annunci:
                 titolo_elem = annuncio.find('span', role='heading')
                 prezzo_elem = annuncio.find('span', class_='s-item__price')
                 link_elem = annuncio.find('a', class_='s-item__link')
@@ -35,11 +39,17 @@ def controlla_offerte():
                     
                     if "tastiera" in titolo.lower() and "surface" not in titolo.lower():
                         continue
+                    if "shop on ebay" in titolo.lower():
+                        continue
                         
                     msg = f"💻 *NUOVO SURFACE TROVATO!* 💻\n\n*Modello:* {titolo}\n*Prezzo:* {prezzo}\n[Vedi Annuncio]({link})"
                     invia_notifica(msg)
-                    print(f"Trovato: {titolo} a {prezzo}")
+                    print(f"Inviato: {titolo} a {prezzo}")
+                    trovato = True
                     break
+            
+            if not trovato:
+                print("Nessun annuncio valido trovato nei primi risultati.")
         else:
             print(f"Errore connessione: {risposta.status_code}")
     except Exception as e:
