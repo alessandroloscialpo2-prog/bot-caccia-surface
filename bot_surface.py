@@ -2,7 +2,7 @@ import os
 import requests
 from bs4 import BeautifulSoup
 
-# LINK DI RICERCA ATTUALE (Filtro impostato a 500€ massimo)
+# LINK DI RICERCA ATTUALE (Filtro impostato a 1500€ massimo)
 URL_RICERCA = "https://ebay.it"
 
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
