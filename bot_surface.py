@@ -11,7 +11,6 @@ TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
 
 def invia_notifica(messaggio):
     url = f"https://telegram.org{TELEGRAM_TOKEN}/sendMessage"
-    # payload pulito senza parse_mode per evitare che i simboli del link blocchino l'invio
     payload = {"chat_id": TELEGRAM_CHAT_ID, "text": messaggio}
     try:
         r = requests.post(url, json=payload, timeout=10)
@@ -39,7 +38,7 @@ def controlla_offerte():
             
         soup = BeautifulSoup(risposta.text, 'html.parser')
         
-        # Estrazione universale tramite i collegamenti reali degli annunci
+        # Estrazione di tutti i link degli annunci reali
         links_inserzioni = soup.find_all('a', href=re.compile(r'/itm/\d+'))
         print(f"Numero di collegamenti ad annunci reali individuati: {len(links_inserzioni)}")
         
@@ -48,7 +47,6 @@ def controlla_offerte():
         
         for link_elem in links_inserzioni:
             link_completo = link_elem['href']
-            # Estrae la parte pulita dell'URL prima del punto di domanda
             raw_link = link_completo.split('?')[0] if '?' in link_completo else link_completo
             
             if raw_link in link_salvati:
@@ -68,12 +66,14 @@ def controlla_offerte():
                 
             titolo_low = titolo.lower()
             
-            # Filtri di isolamento per evitare accessori
+            # Filtri di isolamento intelligenti: scarta solo se NON c'è la parola "surface" o "pro"
             if "shop on ebay" in titolo_low or titolo == "" or "immagine" in titolo_low or len(titolo) < 10:
                 continue
-            if "solo tastiera" in titolo_low or "pellicola" in titolo_low or "caricabatterie" in titolo_low:
+            
+            # Blocca gli accessori puri (es: custodie, pellicole, vetri senza il tablet)
+            if "solo tastiera" in titolo_low or "pellicola" in titolo_low or "vetro temperato" in titolo_low or "custodia" in titolo_low:
                 continue
-            if "bimby" in titolo_low or "vorwerk" in titolo_low:
+            if "tastiera" in titolo_low and "surface" not in titolo_low:
                 continue
                 
             prezzo = "Vedi su eBay"
@@ -85,7 +85,7 @@ def controlla_offerte():
             
             link_salvati.add(raw_link)
             
-            # Compilazione del messaggio in formato testo base super-sicuro
+            # Invia la notifica
             msg = f"SURFACE TROVATO\n\nModello: {titolo}\nPrezzo: {prezzo}\nLink: {raw_link}"
             invia_notifica(msg)
             print(f"[{contatore_invii + 1}] Inviato con successo: {titolo}")
