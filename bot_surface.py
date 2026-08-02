@@ -3,7 +3,7 @@ import requests
 from bs4 import BeautifulSoup
 import re
 
-# LINK DEFINITIVO: Categoria Tablet, Microsoft Surface Pro 7, max 500€
+# LINK DI RICERCA: Microsoft Surface Pro 7, max 500€, categoria Tablet
 URL_RICERCA = "https://ebay.it"
 
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
@@ -11,11 +11,12 @@ TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
 
 def invia_notifica(messaggio):
     url = f"https://telegram.org{TELEGRAM_TOKEN}/sendMessage"
+    # payload pulito senza parse_mode per evitare che i simboli del link blocchino l'invio
     payload = {"chat_id": TELEGRAM_CHAT_ID, "text": messaggio}
     try:
         r = requests.post(url, json=payload, timeout=10)
         if r.status_code != 200:
-            print(f"Errore Telegram Status: {r.status_code} - {r.text}")
+            print(f"Errore Telegram: {r.status_code} - {r.text}")
     except Exception as e:
         print(f"Errore invio Telegram: {e}")
 
@@ -33,12 +34,12 @@ def controlla_offerte():
     try:
         risposta = requests.get(URL_RICERCA, headers=headers, timeout=15)
         if risposta.status_code != 200:
-            print(f"Errore connessione: {risposta.status_code}")
+            print(f"Errore connessione eBay: {risposta.status_code}")
             return
             
         soup = BeautifulSoup(risposta.text, 'html.parser')
         
-        # Estrazione universale tramite i link reali delle inserzioni
+        # Estrazione universale tramite i collegamenti reali degli annunci
         links_inserzioni = soup.find_all('a', href=re.compile(r'/itm/\d+'))
         print(f"Numero di collegamenti ad annunci reali individuati: {len(links_inserzioni)}")
         
@@ -46,9 +47,8 @@ def controlla_offerte():
         link_salvati = set()
         
         for link_elem in links_inserzioni:
-            # Estrae l'indirizzo internet dell'annuncio
             link_completo = link_elem['href']
-            # Pulisce l'indirizzo dai parametri di tracciamento superflui di eBay
+            # Estrae la parte pulita dell'URL prima del punto di domanda
             raw_link = link_completo.split('?')[0] if '?' in link_completo else link_completo
             
             if raw_link in link_salvati:
@@ -68,10 +68,12 @@ def controlla_offerte():
                 
             titolo_low = titolo.lower()
             
-            # Filtri di isolamento per evitare pubblicità o accessori vuoti
+            # Filtri di isolamento per evitare accessori
             if "shop on ebay" in titolo_low or titolo == "" or "immagine" in titolo_low or len(titolo) < 10:
                 continue
             if "solo tastiera" in titolo_low or "pellicola" in titolo_low or "caricabatterie" in titolo_low:
+                continue
+            if "bimby" in titolo_low or "vorwerk" in titolo_low:
                 continue
                 
             prezzo = "Vedi su eBay"
@@ -83,7 +85,7 @@ def controlla_offerte():
             
             link_salvati.add(raw_link)
             
-            # Formattazione del testo semplificata salvando la stringa dell'indirizzo internet corretta
+            # Compilazione del messaggio in formato testo base super-sicuro
             msg = f"SURFACE TROVATO\n\nModello: {titolo}\nPrezzo: {prezzo}\nLink: {raw_link}"
             invia_notifica(msg)
             print(f"[{contatore_invii + 1}] Inviato con successo: {titolo}")
