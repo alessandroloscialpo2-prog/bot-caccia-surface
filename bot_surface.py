@@ -3,7 +3,7 @@ import requests
 from bs4 import BeautifulSoup
 import re
 
-# LINK CORRETTO: Categoria Tablet, Microsoft Surface Pro 7, max 500€
+# LINK DEFINITIVO: Categoria Tablet, Microsoft Surface Pro 7, max 500€
 URL_RICERCA = "https://ebay.it"
 
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
@@ -11,7 +11,6 @@ TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
 
 def invia_notifica(messaggio):
     url = f"https://telegram.org{TELEGRAM_TOKEN}/sendMessage"
-    # Rimosso il parse_mode per evitare gli errori di lettura dei caratteri speciali di eBay
     payload = {"chat_id": TELEGRAM_CHAT_ID, "text": messaggio}
     try:
         r = requests.post(url, json=payload, timeout=10)
@@ -47,7 +46,10 @@ def controlla_offerte():
         link_salvati = set()
         
         for link_elem in links_inserzioni:
-            raw_link = link_elem['href'].split('?')[0] # Prende il link pulito senza tracciamento
+            # Estrae l'indirizzo internet dell'annuncio
+            link_completo = link_elem['href']
+            # Pulisce l'indirizzo dai parametri di tracciamento superflui di eBay
+            raw_link = link_completo.split('?')[0] if '?' in link_completo else link_completo
             
             if raw_link in link_salvati:
                 continue
@@ -81,13 +83,13 @@ def controlla_offerte():
             
             link_salvati.add(raw_link)
             
-            # Formattazione del testo semplificata senza caratteri speciali Markdown dannosi
+            # Formattazione del testo semplificata salvando la stringa dell'indirizzo internet corretta
             msg = f"SURFACE TROVATO\n\nModello: {titolo}\nPrezzo: {prezzo}\nLink: {raw_link}"
             invia_notifica(msg)
             print(f"[{contatore_invii + 1}] Inviato con successo: {titolo}")
             
             contatore_invii += 1
-            if contatore_invii >= 3: # Invia i primi 3 risultati reali per il test
+            if contatore_invii >= 3:
                 break
                 
         if contatore_invii == 0:
