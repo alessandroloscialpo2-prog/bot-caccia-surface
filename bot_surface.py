@@ -2,7 +2,7 @@ import os
 import requests
 from bs4 import BeautifulSoup
 
-# LINK DI TEST (Budget a 1000€ per la prova)
+# LINK DI RICERCA ATTUALE (Filtro impostato a 500€ massimo)
 URL_RICERCA = "https://ebay.it"
 
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
@@ -19,7 +19,6 @@ def invia_notifica(messaggio):
 def controlla_offerte():
     print("Controllo offerte Surface in corso...")
     
-    # Intestazioni potenziate per camuffare il bot da browser umano ed evitare l'errore 418
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
